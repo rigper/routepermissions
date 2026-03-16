@@ -11,21 +11,21 @@
   <description><![CDATA[
 Control de permisos de rutas salientes por extensión, con soporte para reglas por ruta,
 defaults globales, prefijos de redirección, destino alterno si se deniega y gestión masiva.
-Adaptado para IssabelPBX 2.12.0.3 Debian 12 / framework legacy de FreePBX 2.11.
+Adaptado para IssabelPBX 2.12.0.3 Debian 12.
   ]]></description>
   <menuitems>
     <routepermissions>Route Permissions Pro</routepermissions>
   </menuitems>
   <depends>
-    <version>2.11</version>
-    <phpversion>5.6</phpversion>
-    <engine>asterisk ge 11</engine>
+    <version>2.12.0.3</version>
+    <phpversion>7.4.33</phpversion>
+    <engine>Asterisk certified-20.7-cert7</engine>
   </depends>
   <changelog>
     <change>
-      <version>1.4.8</version>
-      <date>2026-03-13</date>
-      <author>OpenAI</author>
+      <version>1.4.9</version>
+      <date>2026-03-16</date>
+      <author>rigper</author>
       <notes>Corrige el render del estado guardado en users/extensions y hace que Heredar default elimine la regla explícita usando el POST síncrono propio del módulo, sin depender de rp_dirty_*.</notes>
     </change>
   </changelog>
