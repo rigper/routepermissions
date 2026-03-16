@@ -1,0 +1,25 @@
+#!/usr/bin/php -q
+<?php
+error_reporting(E_ALL & ~E_NOTICE);
+function rp_log($msg){fwrite(STDERR,"[routepermissions] ".$msg."\n");}
+function rp_agi_read(){ $env=array(); while(!feof(STDIN)){ $line=trim(fgets(STDIN)); if($line===''){break;} $parts=explode(':',$line,2); if(count($parts)===2){$env[trim($parts[0])]=trim($parts[1]);}} return $env; }
+function rp_agi_cmd($cmd){ echo $cmd."\n"; flush(); return trim(fgets(STDIN)); }
+function rp_agi_getvar($name){ $resp=rp_agi_cmd('GET VARIABLE '.$name); if(preg_match('/200 result=1 \((.*)\)$/',$resp,$m)){ return $m[1]; } return ''; }
+function rp_agi_setvar($name,$value){ rp_agi_cmd('SET VARIABLE '.$name.' "'.str_replace('"','\\"',$value).'"'); }
+function rp_agi_exec($app,$args=''){ $cmd='EXEC '.$app; if($args!==''){ $cmd.=' '.$args; } return rp_agi_cmd($cmd); }
+function rp_db_connect(){ $host=rp_agi_getvar('AMPDBHOST'); $user=rp_agi_getvar('AMPDBUSER'); $pass=rp_agi_getvar('AMPDBPASS'); $name=rp_agi_getvar('AMPDBNAME'); $port=rp_agi_getvar('AMPDBPORT'); if($host===''){ $host='127.0.0.1'; } if($name===''){ $name='asterisk'; } if($port===''){ $port=3306; } $mysqli=@new mysqli($host,$user,$pass,$name,(int)$port); if($mysqli->connect_errno){ rp_log('DB connect error: '.$mysqli->connect_error); return null; } $mysqli->set_charset('utf8mb4'); return $mysqli; }
+function rp_fetch_rule($mysqli,$exten,$routeId){ $stmt=$mysqli->prepare("SELECT exten, route_id, routename, allowed, prefix, faildest, notes FROM routepermissions WHERE exten=? AND route_id=? LIMIT 1"); if(!$stmt){ return null; } $stmt->bind_param('si',$exten,$routeId); $stmt->execute(); $res=$stmt->get_result(); $row=$res ? $res->fetch_assoc() : null; $stmt->close(); return $row; }
+function rp_resolve_rule($mysqli,$callerExt,$routeId){ $rule=rp_fetch_rule($mysqli,$callerExt,$routeId); if($rule){ $rule['_source']='explicit'; return $rule; } $rule=rp_fetch_rule($mysqli,'-1',$routeId); if($rule){ $rule['_source']='route-default'; return $rule; } $rule=rp_fetch_rule($mysqli,'-1',-1); if($rule){ $rule['_source']='global-meta'; return $rule; } return array('allowed'=>'INHERIT','prefix'=>'','faildest'=>'','_source'=>'none'); }
+function rp_parse_dest_for_goto($dest){ $dest=trim((string)$dest); if($dest===''){ return null; } $parts=array_map('trim', explode(',', $dest)); if(count($parts)>=3){ return array($parts[0],$parts[1],$parts[2]); } if(count($parts)===2){ return array($parts[0],$parts[1],'1'); } return array('from-internal',$parts[0],'1'); }
+$env=rp_agi_read(); $routeId=(int)rp_agi_getvar('ROUTEPERM_ROUTE_ID'); $routeName=rp_agi_getvar('ROUTENAME'); $callerExt=rp_agi_getvar('AMPUSER'); if($callerExt===''){ $callerExt=rp_agi_getvar('REALCALLERIDNUM'); } if($callerExt===''){ $callerExt=rp_agi_getvar('CALLERID(num)'); } $dialed=rp_agi_getvar('OUTNUM'); if($dialed===''){ $dialed=rp_agi_getvar('ARG2'); } if($dialed===''){ $dialed=isset($env['agi_extension']) ? $env['agi_extension'] : ''; }
+if((int)rp_agi_getvar('ROUTEPERM_BYPASS')===1){ rp_log('Bypass activo; no se valida.'); exit(0); }
+if($routeId<=0){ rp_log('Sin ROUTEPERM_ROUTE_ID; no se valida.'); exit(0); }
+if($callerExt===''){ rp_log('No se detectó extensión origen; se permite por seguridad.'); exit(0); }
+$mysqli=rp_db_connect(); if(!$mysqli){ exit(0); }
+$rule=rp_resolve_rule($mysqli,$callerExt,$routeId); $allowed=strtoupper(isset($rule['allowed']) ? $rule['allowed'] : 'INHERIT'); $prefix=isset($rule['prefix']) ? trim($rule['prefix']) : ''; $faildest=isset($rule['faildest']) ? trim($rule['faildest']) : ''; if($allowed==='INHERIT' || $allowed===''){ $allowed='YES'; }
+rp_agi_setvar('ROUTEPERM_DECISION',$allowed); rp_agi_setvar('ROUTEPERM_RULE_SOURCE',isset($rule['_source']) ? $rule['_source'] : '');
+if($allowed==='YES'){ rp_log("ALLOW ext={$callerExt} route={$routeId} ({$routeName}) dialed={$dialed}"); exit(0); }
+rp_log("DENY ext={$callerExt} route={$routeId} ({$routeName}) dialed={$dialed}");
+if($prefix!=='' && $dialed!==''){ $newnum=$prefix.$dialed; rp_log("Redirect by prefix to {$newnum}"); rp_agi_setvar('ROUTEPERM_BYPASS','1'); rp_agi_setvar('OUTNUM',$newnum); rp_agi_exec('Goto','from-internal,'.$newnum.',1'); exit(0); }
+if($faildest!==''){ $goto=rp_parse_dest_for_goto($faildest); if($goto){ rp_log("Goto faildest {$goto[0]},{$goto[1]},{$goto[2]}"); rp_agi_exec('Goto',$goto[0].','.$goto[1].','.$goto[2]); exit(0); } }
+rp_agi_exec('Playback','ss-noservice'); rp_agi_exec('Hangup'); exit(0);

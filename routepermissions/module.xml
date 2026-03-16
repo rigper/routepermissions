@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<module>
+  <rawname>routepermissions</rawname>
+  <name>Route Permissions Pro</name>
+  <version>1.4.9</version>
+  <type>setup</type>
+  <category>Settings</category>
+  <license>AGPLv3+</license>
+  <publisher>By rigper adapted for IssabelPBX 2.12.0.3 Debian 12</publisher>
+  <publisherurl>https://github.com/rigper</publisherurl>
+  <description><![CDATA[
+Control de permisos de rutas salientes por extensión, con soporte para reglas por ruta,
+defaults globales, prefijos de redirección, destino alterno si se deniega y gestión masiva.
+Adaptado para IssabelPBX 2.12.0.3 Debian 12 / framework legacy de FreePBX 2.11.
+  ]]></description>
+  <menuitems>
+    <routepermissions>Route Permissions Pro</routepermissions>
+  </menuitems>
+  <depends>
+    <version>2.11</version>
+    <phpversion>5.6</phpversion>
+    <engine>asterisk ge 11</engine>
+  </depends>
+  <changelog>
+    <change>
+      <version>1.4.8</version>
+      <date>2026-03-13</date>
+      <author>OpenAI</author>
+      <notes>Corrige el render del estado guardado en users/extensions y hace que Heredar default elimine la regla explícita usando el POST síncrono propio del módulo, sin depender de rp_dirty_*.</notes>
+    </change>
+  </changelog>
+  <files>
+    <file>functions.inc.php</file>
+    <file>page.routepermissions.php</file>
+    <file>install.php</file>
+    <file>uninstall.php</file>
+    <file>install.sql</file>
+    <file>views/routepermissions.php</file>
+    <file>agi-bin/checkperms.agi</file>
+    <file>README-ISSABEL.txt</file>
+  </files>
+</module>
